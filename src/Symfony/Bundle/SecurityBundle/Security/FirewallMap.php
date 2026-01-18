@@ -24,6 +24,10 @@ use Symfony\Component\Security\Http\FirewallMapInterface;
  */
 class FirewallMap implements FirewallMapInterface
 {
+    private const ATTRIBUTE_FIREWALL = '_firewall';
+    private const ATTRIBUTE_FIREWALL_CONTEXT = '_firewall_context';
+    private const FIREWALL_CONTEXT_PREFIX = 'security.firewall.map.context.';
+
     public function __construct(
         private ContainerInterface $container,
         private iterable $map,
@@ -48,20 +52,27 @@ class FirewallMap implements FirewallMapInterface
 
     private function getFirewallContext(Request $request): ?FirewallContext
     {
-        if ($request->attributes->has('_firewall_context')) {
-            $storedContextId = $request->attributes->get('_firewall_context');
+        if (!$request->attributes->has(self::ATTRIBUTE_FIREWALL_CONTEXT) && $request->attributes->has(self::ATTRIBUTE_FIREWALL)) {
+            $firewall = $request->attributes->get(self::ATTRIBUTE_FIREWALL);
+            if (\is_string($firewall) && '' !== $firewall) {
+                $request->attributes->set(self::ATTRIBUTE_FIREWALL_CONTEXT, self::FIREWALL_CONTEXT_PREFIX.$firewall);
+            }
+        }
+
+        if ($request->attributes->has(self::ATTRIBUTE_FIREWALL_CONTEXT)) {
+            $storedContextId = $request->attributes->get(self::ATTRIBUTE_FIREWALL_CONTEXT);
             foreach ($this->map as $contextId => $requestMatcher) {
                 if ($contextId === $storedContextId) {
                     return $this->container->get($contextId);
                 }
             }
 
-            $request->attributes->remove('_firewall_context');
+            $request->attributes->remove(self::ATTRIBUTE_FIREWALL_CONTEXT);
         }
 
         foreach ($this->map as $contextId => $requestMatcher) {
             if (null === $requestMatcher || $requestMatcher->matches($request)) {
-                $request->attributes->set('_firewall_context', $contextId);
+                $request->attributes->set(self::ATTRIBUTE_FIREWALL_CONTEXT, $contextId);
 
                 return $this->container->get($contextId);
             }

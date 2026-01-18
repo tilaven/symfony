@@ -60,4 +60,9 @@ class FooController
     public function alias()
     {
     }
+
+    #[Route('/secured', firewall: 'api')]
+    public function firewall()
+    {
+    }
 }
